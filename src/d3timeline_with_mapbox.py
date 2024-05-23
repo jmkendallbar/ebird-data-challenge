@@ -130,7 +130,7 @@ html_template = f"""
         mapboxgl.accessToken = 'pk.eyJ1IjoiamtlbmRhbGxiYXIiLCJhIjoiY2x3aXJtdndlMHQ2ODJpbGV2MHZuczJ6ZSJ9.Osr0UL8698r-LhyuBIXSog';
         const map = new mapboxgl.Map({{
             container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v11'
+            style: 'mapbox://styles/mapbox/satellite-v9'
         }});
 
         // Define bounds
