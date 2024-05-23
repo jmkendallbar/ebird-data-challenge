@@ -9,11 +9,49 @@ from folium.plugins import TimestampedGeoJson
 
 # Define input directory and file paths
 inputDir = '../data/umich_swamp_aru_analysis/'
+outputDir = '../outputs/'
 filePath = os.path.join(inputDir, "swamp_aru_audio_assets.csv")
 recorder_info_path = os.path.join(inputDir, "swamp_aru_recorder_info.csv")
+assetsfilePath = os.path.join(outputDir, "schmidt_events_of_interest.csv")
+
 
 # Read the assets CSV file
 assets = pd.read_csv(filePath)
+# Read the events CSV file
+events = pd.read_csv(assetsfilePath)
+
+# Extract datetime from the filename
+def extract_datetime(filename):
+    # Split the filename by underscores
+    parts = filename.split('_')
+    # Extract the date and time parts and concatenate them
+    date_str = parts[4]
+    time_str = parts[5][:6]  # Extract only the HHMMSS part
+    datetime_str = f"{date_str}{time_str}"
+    return datetime.datetime.strptime(datetime_str, '%Y%m%d%H%M%S')
+
+# Apply the extraction function to the filenames
+events['datetime'] = events['filename'].apply(extract_datetime)
+events['hour'] = events['datetime'].dt.floor('H')  # Floor to the nearest hour
+
+# Group by hour and Annotation (species), then count occurrences
+hourly_data = events.groupby(['hour', 'Annotation']).size().reset_index(name='count')
+
+# Calculate the total count per hour
+total_counts_per_hour = hourly_data.groupby('hour')['count'].sum().reset_index(name='total_count')
+
+# Merge the total counts back with the original counts
+hourly_data = hourly_data.merge(total_counts_per_hour, on='hour')
+
+# Calculate the proportion of each species per hour
+hourly_data['percentage'] = hourly_data['count'] / hourly_data['total_count']
+
+# Create the proportional stacked area plot
+fig = px.area(hourly_data, x='hour', y='percentage', color='Annotation', 
+              labels={'percentage': 'Proportion', 'hour': 'Time (Hour)', 'Annotation': 'Bird Species'},
+              title='Proportion of Bird Species per Hour Over 3 Days')
+
+fig.show()
 
 # Prepare datetime strings
 datetimestrs = []
