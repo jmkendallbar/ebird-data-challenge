@@ -12,21 +12,26 @@ inputDir = '../data/umich_swamp_aru_analysis/'
 outputDir = '../outputs/'
 filePath = os.path.join(inputDir, "swamp_aru_audio_assets.csv")
 recorder_info_path = os.path.join(inputDir, "swamp_aru_recorder_info.csv")
-assetsfilePath = os.path.join(outputDir, "schmidt_events_of_interest.csv")
-
+eventsfilePath = os.path.join(outputDir, "schmidt_events_of_interest.csv")
+taxonomyFilePath = os.path.join(inputDir, "eBird_Taxonomy_v2022.csv")
 
 # Read the assets CSV file
 assets = pd.read_csv(filePath)
+
 # Read the events CSV file
-events = pd.read_csv(assetsfilePath)
+events = pd.read_csv(eventsfilePath)
+
+# Read the taxonomy CSV file
+taxonomy = pd.read_csv(taxonomyFilePath)
+
+# Filter out rows with Annotation 'bird1'
+events = events[events['Annotation'] != 'bird1']
 
 # Extract datetime from the filename
 def extract_datetime(filename):
-    # Split the filename by underscores
     parts = filename.split('_')
-    # Extract the date and time parts and concatenate them
     date_str = parts[4]
-    time_str = parts[5][:6]  # Extract only the HHMMSS part
+    time_str = parts[5][:6]
     datetime_str = f"{date_str}{time_str}"
     return datetime.datetime.strptime(datetime_str, '%Y%m%d%H%M%S')
 
@@ -34,8 +39,11 @@ def extract_datetime(filename):
 events['datetime'] = events['filename'].apply(extract_datetime)
 events['hour'] = events['datetime'].dt.floor('H')  # Floor to the nearest hour
 
-# Group by hour and Annotation (species), then count occurrences
-hourly_data = events.groupby(['hour', 'Annotation']).size().reset_index(name='count')
+# Merge events with taxonomy to get the family names
+events = events.merge(taxonomy[['SPECIES_CODE', 'FAMILY']], left_on='Annotation', right_on='SPECIES_CODE', how='left')
+
+# Group by hour and Family (instead of Annotation), then count occurrences
+hourly_data = events.groupby(['hour', 'FAMILY']).size().reset_index(name='count')
 
 # Calculate the total count per hour
 total_counts_per_hour = hourly_data.groupby('hour')['count'].sum().reset_index(name='total_count')
@@ -43,15 +51,17 @@ total_counts_per_hour = hourly_data.groupby('hour')['count'].sum().reset_index(n
 # Merge the total counts back with the original counts
 hourly_data = hourly_data.merge(total_counts_per_hour, on='hour')
 
-# Calculate the proportion of each species per hour
+# Calculate the proportion of each family per hour
 hourly_data['percentage'] = hourly_data['count'] / hourly_data['total_count']
 
 # Create the proportional stacked area plot
-fig = px.area(hourly_data, x='hour', y='percentage', color='Annotation', 
-              labels={'percentage': 'Proportion', 'hour': 'Time (Hour)', 'Annotation': 'Bird Species'},
-              title='Proportion of Bird Species per Hour Over 3 Days')
+fig = px.area(hourly_data, x='hour', y='percentage', color='FAMILY', 
+              labels={'percentage': 'Proportion', 'hour': 'Time (Hour)', 'FAMILY': 'Bird Family'},
+              title='Proportion of Bird Families per Hour Over 3 Days')
 
 fig.show()
+
+
 
 # Prepare datetime strings
 datetimestrs = []
